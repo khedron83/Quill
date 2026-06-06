@@ -31,6 +31,8 @@ modules:
     buildsystem: simple
     build-commands:
       - pip3 install --prefix=/app --no-deps --no-build-isolation .
+      - install -Dm644 desktop/src/resources/icon.svg
+          /app/share/icons/hicolor/scalable/apps/io.github.khedron83.Quill.svg
       - install -Dm644 io.github.khedron83.Quill.desktop
           /app/share/applications/io.github.khedron83.Quill.desktop
       - install -Dm644 io.github.khedron83.Quill.metainfo.xml

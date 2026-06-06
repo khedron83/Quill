@@ -4,7 +4,9 @@ a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('src/resources/icon.svg', 'src/resources'),
+    ],
     hiddenimports=[
         'PySide6.QtCore',
         'PySide6.QtGui',
