@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Quill
+Comment=Task manager with Nextcloud CalDAV sync
+Exec=quill
+Icon=io.github.khedron83.Quill
+Type=Application
+Categories=Office;ProjectManagement;
+Keywords=tasks;todo;caldav;nextcloud;
+StartupWMClass=Quill

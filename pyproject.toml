@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=43"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -18,3 +18,11 @@ quill = "main:main"
 
 [project.urls]
 Repository = "https://github.com/khedron83/Quill"
+
+[tool.setuptools]
+package-dir = {"" = "desktop"}
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["desktop"]
+include = ["src*"]
