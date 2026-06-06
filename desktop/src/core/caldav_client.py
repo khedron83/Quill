@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Optional
+
 import caldav
-from caldav.cal import Calendar
-from icalendar import Event
+from caldav import Calendar
+from icalendar import Calendar as iCal, Todo
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +43,16 @@ class CalDAVClient:
         self._dav: Optional[caldav.DAVClient] = None
         self._principal: Optional[caldav.Principal] = None
 
+    def _caldav_url(self) -> str:
+        base = self.url.rstrip("/")
+        if "/remote.php/dav" not in base and "/remote.php/caldav" not in base:
+            return f"{base}/remote.php/dav"
+        return base
+
     def _get_dav(self) -> caldav.DAVClient:
-        """Lazy init DAV client."""
         if not self._dav:
             self._dav = caldav.DAVClient(
-                url=self.url,
+                url=self._caldav_url(),
                 username=self.username,
                 password=self.password,
                 ssl_verify_cert=self.verify_ssl,
@@ -53,58 +60,63 @@ class CalDAVClient:
         return self._dav
 
     def _get_principal(self) -> caldav.Principal:
-        """Get principal (user)."""
         if not self._principal:
             self._principal = self._get_dav().principal()
         return self._principal
 
     def get_calendars(self) -> list[tuple[str, str]]:
-        """Return [(name, url), ...] of all task calendars."""
         try:
             principal = self._get_principal()
             calendars = principal.calendars()
-            return [(cal.name, cal.url) for cal in calendars if "VTODO" in cal.get_supported_components()]
+            return [
+                (cal.name, str(cal.url))
+                for cal in calendars
+                if "VTODO" in cal.get_supported_components()
+            ]
         except Exception as e:
             logger.error(f"Failed to get calendars: {e}")
             return []
 
-    def get_tasks(self, calendar_url: str) -> list[Task]:
-        """Fetch all tasks from a calendar."""
+    def create_calendar(self, name: str) -> bool:
         try:
-            cal = Calendar(
-                client=self._get_dav(),
-                url=calendar_url,
-            )
-            todos = cal.todos()
+            principal = self._get_principal()
+            principal.make_calendar(name=name, supported_calendar_component_set=["VTODO"])
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create calendar: {e}")
+            return False
+
+    def get_tasks(self, calendar_url: str) -> list[Task]:
+        try:
+            cal = Calendar(client=self._get_dav(), url=calendar_url)
+            todos = cal.todos(include_completed=True)
             tasks = []
             for todo in todos:
-                task = self._parse_todo(todo, calendar_url.split("/")[-1].rstrip("/"))
-                if task and not task.parent_uid:  # Only top-level tasks
+                task = self._parse_todo(todo, calendar_url)
+                if task and not task.parent_uid:
                     tasks.append(task)
             return tasks
         except Exception as e:
             logger.error(f"Failed to get tasks: {e}")
             return []
 
-    def _parse_todo(self, todo: Event, calendar_name: str) -> Optional[Task]:
-        """Parse a CalDAV todo into a Task."""
+    def _parse_todo(self, todo, calendar_name: str) -> Optional[Task]:
         try:
-            uid = todo.instance.vevent.uid.to_ical().decode() if hasattr(todo.instance, "vevent") else ""
-            summary = str(todo.instance.vevent.summary) if hasattr(todo.instance.vevent, "summary") else ""
-            description = str(todo.instance.vevent.description) if hasattr(todo.instance.vevent, "description") else ""
+            comp = todo.icalendar_component
+            uid = str(comp.get("UID", "")) or str(uuid.uuid4())
+            summary = str(comp.get("SUMMARY", ""))
+            description = str(comp.get("DESCRIPTION", "")) if comp.get("DESCRIPTION") else ""
+
             due = None
-            if hasattr(todo.instance.vevent, "due"):
-                due_val = todo.instance.vevent.due.dt
-                due = due_val if isinstance(due_val, datetime) else datetime.combine(due_val, datetime.min.time())
+            if comp.get("DUE"):
+                due_val = comp["DUE"].dt
+                if isinstance(due_val, datetime):
+                    due = due_val
+                elif isinstance(due_val, date):
+                    due = datetime(due_val.year, due_val.month, due_val.day)
 
-            # Check for subtask (parent task)
-            parent_uid = None
-            if hasattr(todo.instance.vevent, "related_to"):
-                parent_uid = str(todo.instance.vevent.related_to)
-
-            completed = False
-            if hasattr(todo.instance.vevent, "status"):
-                completed = str(todo.instance.vevent.status) == "COMPLETED"
+            parent_uid = str(comp.get("RELATED-TO", "")) or None
+            completed = str(comp.get("STATUS", "")) == "COMPLETED"
 
             return Task(
                 uid=uid,
@@ -120,32 +132,52 @@ class CalDAVClient:
             return None
 
     def create_task(self, calendar_url: str, task: Task) -> bool:
-        """Create a new task."""
         try:
             cal = Calendar(client=self._get_dav(), url=calendar_url)
-            # Create VTODO event
-            # This is simplified — full icalendar creation needed
-            logger.info(f"Created task: {task.summary}")
+            ical = iCal()
+            todo = Todo()
+            todo.add("uid", task.uid or str(uuid.uuid4()))
+            todo.add("summary", task.summary)
+            if task.description:
+                todo.add("description", task.description)
+            if task.due:
+                todo.add("due", task.due)
+            todo.add("status", "COMPLETED" if task.completed else "NEEDS-ACTION")
+            if task.parent_uid:
+                todo.add("related-to", task.parent_uid)
+            ical.add_component(todo)
+            cal.add_todo(ical=ical.to_ical().decode("utf-8"))
             return True
         except Exception as e:
             logger.error(f"Failed to create task: {e}")
             return False
 
-    def update_task(self, task: Task) -> bool:
-        """Update an existing task."""
+    def update_task(self, calendar_url: str, task: Task) -> bool:
         try:
-            logger.info(f"Updated task: {task.summary}")
+            cal = Calendar(client=self._get_dav(), url=calendar_url)
+            obj = cal.object_by_uid(task.uid)
+            with obj.edit_icalendar_component() as comp:
+                comp["SUMMARY"] = task.summary
+                if task.description:
+                    comp["DESCRIPTION"] = task.description
+                elif "DESCRIPTION" in comp:
+                    del comp["DESCRIPTION"]
+                if task.due:
+                    comp.pop("DUE", None)
+                    comp.add("DUE", task.due)
+                elif "DUE" in comp:
+                    del comp["DUE"]
+                comp["STATUS"] = "COMPLETED" if task.completed else "NEEDS-ACTION"
+            obj.save()
             return True
         except Exception as e:
             logger.error(f"Failed to update task: {e}")
             return False
 
     def delete_task(self, calendar_url: str, task_uid: str) -> bool:
-        """Delete a task."""
         try:
             cal = Calendar(client=self._get_dav(), url=calendar_url)
-            # Find and delete the todo
-            logger.info(f"Deleted task: {task_uid}")
+            cal.object_by_uid(task_uid).delete()
             return True
         except Exception as e:
             logger.error(f"Failed to delete task: {e}")
