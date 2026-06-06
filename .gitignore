@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Android
+android/.gradle/
+android/local.properties
+android/.idea/
+android/**/*.iml
+android/**/build/
+android/.classpath
+android/.project
+android/.settings/

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quill"
+version = "1.0.0"
+description = "A task manager with Nextcloud CalDAV sync"
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.6.0",
+    "caldav>=1.3.0",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+quill = "main:main"
+
+[project.urls]
+Repository = "https://github.com/khedron83/Quill"
