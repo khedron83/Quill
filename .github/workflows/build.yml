@@ -143,11 +143,14 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk quill-android.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: quill-android
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: quill-android.apk
           retention-days: 30
 
   release:
