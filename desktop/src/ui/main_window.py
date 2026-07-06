@@ -10,170 +10,18 @@ from PySide6.QtWidgets import (
     QFrame, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QAction, QColor, QFont
+from PySide6.QtGui import QAction, QFont
 from src.core.config import Config
 from src.core.caldav_client import CalDAVClient, Task
 
 
-_STYLE = """
-QMainWindow, QDialog, QWidget {
-    background: #111827;
-    color: #e2e8f0;
-    font-size: 13px;
-}
-
-/* ── Sidebar ─────────────────────────────────────────────────────── */
-QWidget#sidebar {
-    background: #1e2a3a;
-    border-right: 1px solid #243447;
-}
-QWidget#sidebar QLabel#sidebarHeader {
-    color: #64748b;
-    font-size: 10px;
-    font-weight: bold;
-    padding: 18px 14px 4px;
-}
-QWidget#sidebar QListWidget {
-    background: transparent;
-    border: none;
-    color: #c8d8e8;
-    padding: 4px 8px;
-    outline: 0;
-}
-QWidget#sidebar QListWidget::item {
-    padding: 9px 10px;
-    border-radius: 6px;
-    margin: 1px 0;
-}
-QWidget#sidebar QListWidget::item:selected {
-    background: #2563eb;
-    color: white;
-}
-QWidget#sidebar QListWidget::item:hover:!selected {
-    background: rgba(255,255,255,0.07);
-}
-QPushButton#newCalBtn {
-    background: transparent;
-    color: #64748b;
-    border: 1px solid #2d3f55;
-    border-radius: 6px;
-    padding: 7px 10px;
-    margin: 4px 10px 10px;
-    text-align: left;
-    font-size: 12px;
-}
-QPushButton#newCalBtn:hover {
-    background: rgba(255,255,255,0.07);
-    color: #c8d8e8;
-    border-color: #4a6080;
-}
-
-/* ── Content pane ────────────────────────────────────────────────── */
-QWidget#content {
-    background: #111827;
-}
-QListWidget#taskList {
-    background: #1e2a3a;
-    border: 1px solid #243447;
-    border-radius: 10px;
-    padding: 6px;
-    outline: 0;
-    font-size: 14px;
-    color: #e2e8f0;
-}
-QListWidget#taskList::item {
-    padding: 11px 14px;
-    border-radius: 7px;
-    color: #e2e8f0;
-    margin: 1px 0;
-}
-QListWidget#taskList::item:selected {
-    background: #1d3461;
-    color: #93c5fd;
-}
-QListWidget#taskList::item:hover:!selected {
-    background: #243447;
-}
-
-/* ── Generic buttons ─────────────────────────────────────────────── */
-QPushButton {
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 7px;
-    padding: 8px 18px;
-    font-size: 13px;
-    font-weight: 500;
-}
-QPushButton:hover    { background: #1d4ed8; }
-QPushButton:pressed  { background: #1e40af; }
-QPushButton:disabled { background: #243447; color: #64748b; border: 1px solid #2d3f55; }
-
-QPushButton#editBtn       { background: #0e7490; color: white; }
-QPushButton#editBtn:hover { background: #0891b2; color: white; }
-
-QPushButton#toggleBtn       { background: #15803d; color: white; }
-QPushButton#toggleBtn:hover { background: #16a34a; color: white; }
-
-QPushButton#deleteBtn       { background: #b91c1c; color: white; }
-QPushButton#deleteBtn:hover { background: #dc2626; color: white; }
-
-/* ── Form inputs ─────────────────────────────────────────────────── */
-QLineEdit, QTextEdit, QDateEdit {
-    background: #1e2a3a;
-    border: 1px solid #2d3f55;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 13px;
-    color: #e2e8f0;
-    selection-background-color: #1d3461;
-}
-QLineEdit:focus, QTextEdit:focus, QDateEdit:focus {
-    border-color: #2563eb;
-}
-QCheckBox {
-    color: #c8d8e8;
-    font-size: 13px;
-    spacing: 8px;
-}
-QLabel {
-    color: #c8d8e8;
-    font-size: 13px;
-}
-QLabel#dlgTitle {
-    font-size: 16px;
-    font-weight: bold;
-    color: #e2e8f0;
-    margin-bottom: 4px;
-}
-QFrame[frameShape="4"] {
-    color: #243447;
-}
-
-/* ── Menu / status bar ───────────────────────────────────────────── */
-QMenuBar {
-    background: #1e2a3a;
-    color: #c8d8e8;
-    padding: 2px;
-}
-QMenuBar::item:selected { background: #2d3f55; border-radius: 4px; }
-QMenu {
-    background: #1e2a3a;
-    color: #c8d8e8;
-    border: 1px solid #2d3f55;
-    border-radius: 6px;
-    padding: 4px;
-}
-QMenu::item { padding: 6px 24px 6px 12px; border-radius: 4px; }
-QMenu::item:selected { background: #2563eb; }
-QStatusBar {
-    background: #1e2a3a;
-    color: #64748b;
-    border-top: 1px solid #243447;
-    font-size: 12px;
-    padding: 2px 8px;
-}
-"""
+def _title_label(text: str) -> QLabel:
+    label = QLabel(text)
+    font = label.font()
+    font.setPointSize(font.pointSize() + 3)
+    font.setBold(True)
+    label.setFont(font)
+    return label
 
 
 class MainWindow(QMainWindow):
@@ -184,7 +32,6 @@ class MainWindow(QMainWindow):
         self._current_calendar_url: str | None = None
         self.setWindowTitle("Quill")
         self.setMinimumSize(860, 580)
-        self.setStyleSheet(_STYLE)
         self._setup_ui()
         self._init()
 
@@ -211,14 +58,17 @@ class MainWindow(QMainWindow):
 
         # ── Sidebar ───────────────────────────────────────────────────
         sidebar = QWidget()
-        sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(220)
         sl = QVBoxLayout(sidebar)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
 
         cal_label = QLabel("CALENDARS")
-        cal_label.setObjectName("sidebarHeader")
+        cal_font = cal_label.font()
+        cal_font.setBold(True)
+        cal_font.setPointSize(cal_font.pointSize() - 2)
+        cal_label.setFont(cal_font)
+        cal_label.setContentsMargins(14, 18, 14, 4)
         sl.addWidget(cal_label)
 
         self._calendar_list = QListWidget()
@@ -226,20 +76,17 @@ class MainWindow(QMainWindow):
         sl.addWidget(self._calendar_list, 1)
 
         new_cal_btn = QPushButton("＋  New Calendar")
-        new_cal_btn.setObjectName("newCalBtn")
         new_cal_btn.clicked.connect(self._add_calendar)
         sl.addWidget(new_cal_btn)
         root.addWidget(sidebar)
 
         # ── Content pane ──────────────────────────────────────────────
         content = QWidget()
-        content.setObjectName("content")
         cl = QVBoxLayout(content)
         cl.setContentsMargins(20, 16, 20, 16)
         cl.setSpacing(12)
 
         self._task_list = QListWidget()
-        self._task_list.setObjectName("taskList")
         self._task_list.itemDoubleClicked.connect(self._edit_task)
         self._task_list.itemClicked.connect(lambda _: self._set_task_btns_enabled(True))
         cl.addWidget(self._task_list)
@@ -250,13 +97,8 @@ class MainWindow(QMainWindow):
         self._add_btn.setEnabled(False)
 
         self._edit_btn = QPushButton("Edit")
-        self._edit_btn.setObjectName("editBtn")
-
         self._toggle_btn = QPushButton("Toggle Done")
-        self._toggle_btn.setObjectName("toggleBtn")
-
         self._delete_btn = QPushButton("Delete")
-        self._delete_btn.setObjectName("deleteBtn")
 
         self._add_btn.clicked.connect(self._add_task)
         self._edit_btn.clicked.connect(self._edit_task)
@@ -323,7 +165,7 @@ class MainWindow(QMainWindow):
                 font = item.font()
                 font.setStrikeOut(True)
                 item.setFont(font)
-                item.setForeground(QColor("#94a3b8"))
+                item.setForeground(self._task_list.palette().placeholderText())
             self._task_list.addItem(item)
 
     def _selected_task(self) -> Task | None:
@@ -427,13 +269,12 @@ class TaskDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(16)
 
-        title = QLabel("Edit Task" if task else "New Task")
-        title.setObjectName("dlgTitle")
+        title = _title_label("Edit Task" if task else "New Task")
         layout.addWidget(title)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #e2e8f0;")
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(sep)
 
         form = QFormLayout()
@@ -471,7 +312,6 @@ class TaskDialog(QDialog):
         ok_btn = QPushButton("Save" if task else "Add Task")
         ok_btn.clicked.connect(self._accept)
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setStyleSheet("background:#2d3f55; color:#c8d8e8;")
         cancel_btn.clicked.connect(self.reject)
         buttons.addStretch()
         buttons.addWidget(cancel_btn)
@@ -489,7 +329,6 @@ class TaskDialog(QDialog):
     def _accept(self):
         if not self._summary.text().strip():
             self._summary.setFocus()
-            self._summary.setStyleSheet("border-color: #dc2626;")
             return
         self.accept()
 
@@ -522,13 +361,12 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(16)
 
-        title = QLabel("Settings")
-        title.setObjectName("dlgTitle")
+        title = _title_label("Settings")
         layout.addWidget(title)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #e2e8f0;")
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(sep)
 
         form = QFormLayout()
@@ -558,7 +396,6 @@ class SettingsDialog(QDialog):
         ok_btn = QPushButton("Save")
         ok_btn.clicked.connect(self._save)
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setStyleSheet("background:#2d3f55; color:#c8d8e8;")
         cancel_btn.clicked.connect(self.reject)
         buttons.addStretch()
         buttons.addWidget(cancel_btn)
